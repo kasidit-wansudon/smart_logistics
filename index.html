@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Logistics - ระบบจัดการกระจายสินค้าอัจฉริยะ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f8f7f4;
+            color: #3d3d3d;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 400px;
+        }
+        .step-indicator {
+            transition: all 0.3s ease-in-out;
+            border-color: #d1d5db;
+        }
+        .step-indicator.active {
+            border-color: #2563eb;
+            transform: scale(1.05);
+            box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.25);
+        }
+        .warehouse-dot {
+            transition: all 0.3s ease-in-out;
+        }
+        .blinking {
+            animation: blinker 1s linear infinite;
+        }
+        @keyframes blinker {
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <main class="container mx-auto px-4 py-8 md:py-12">
+
+        <section class="text-center mb-16">
+            <h1 class="text-3xl md:text-5xl font-bold text-gray-800 mb-4">ปฏิวัติการจัดการร้านค้าออนไลน์</h1>
+            <p class="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">หมดปัญหาออเดอร์ล้น สต็อกไม่พอจัดการ ด้วยระบบกระจายสินค้าอัจฉริยะที่เชื่อมต่อทุกแพลตฟอร์ม</p>
+            <div class="flex justify-center items-center space-x-4 mt-6">
+                <div class="p-3 bg-white rounded-full shadow-md"><img src="https://placehold.co/40x40/FFFFFF/000000?text=LZ" alt="Lazada" class="w-10 h-10 rounded-full"></div>
+                <div class="p-3 bg-white rounded-full shadow-md"><img src="https://placehold.co/40x40/FFFFFF/000000?text=SP" alt="Shopee" class="w-10 h-10 rounded-full"></div>
+                <div class="p-3 bg-white rounded-full shadow-md"><img src="https://placehold.co/40x40/FFFFFF/000000?text=TT" alt="TikTok" class="w-10 h-10 rounded-full"></div>
+            </div>
+        </section>
+
+        <section class="mb-20 bg-white p-6 md:p-8 rounded-2xl shadow-lg">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-2 text-gray-800">เคยเจอปัญหานี้ไหม?</h2>
+            <p class="text-center text-gray-600 mb-8">เมื่อออเดอร์เข้ามา แต่สินค้าในคลังที่ใกล้ที่สุด...หมด!</p>
+            
+            <div class="relative w-full max-w-3xl mx-auto h-80 bg-gray-100 rounded-xl p-4 border border-gray-200">
+                <div id="warehouse-surin" class="warehouse-dot absolute top-1/2 left-1/2 -translate-x-16 -translate-y-16 text-center">
+                    <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg">คลังสุรินทร์</div>
+                    <span id="stock-surin" class="text-sm font-semibold">สต็อก: 1 ชิ้น</span>
+                </div>
+                <div id="warehouse-khonkaen" class="warehouse-dot absolute top-1/4 left-1/4 text-center">
+                    <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg">คลังขอนแก่น</div>
+                    <span id="stock-khonkaen" class="text-sm font-semibold">สต็อก: 10 ชิ้น</span>
+                </div>
+                <div id="customer-sisaket" class="warehouse-dot absolute bottom-1/4 right-1/4 text-center">
+                    <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg">ลูกค้าศรีสะเกษ</div>
+                </div>
+
+                <div id="simulation-status" class="absolute bottom-4 left-1/2 -translate-x-1/2 w-4/5 text-center p-3 rounded-lg text-lg font-semibold transition-all duration-300"></div>
+            </div>
+
+            <div class="text-center mt-8">
+                <button id="simulate-order-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors shadow-md">จำลองการรับออเดอร์ (แบบไม่มีระบบ)</button>
+                <button id="reset-simulation-btn" class="bg-gray-400 text-white font-bold py-3 px-8 rounded-lg hover:bg-gray-500 transition-colors ml-4 shadow-md hidden">รีเซ็ต</button>
+            </div>
+        </section>
+
+        <section class="mb-20">
+            <div class="text-center mb-10">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">ขอแนะนำ Smart Logistics Dashboard</h2>
+                <p class="text-gray-600 mt-2">ภาพรวมสต็อกและออเดอร์จากทุกคลังและทุกแพลตฟอร์มในหน้าเดียว</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h3 class="font-bold text-xl mb-4 text-center text-gray-700">ปริมาณสินค้าในแต่ละคลัง</h3>
+                    <div class="chart-container">
+                        <canvas id="stockChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h3 class="font-bold text-xl mb-4 text-center text-gray-700">สัดส่วนออเดอร์ตามแพลตฟอร์ม</h3>
+                    <div class="chart-container">
+                        <canvas id="platformChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-20">
+            <div class="text-center mb-10">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">ระบบทำงานอย่างไร?</h2>
+                <p class="text-gray-600 mt-2">เมื่อมีระบบอัจฉริยะเข้ามาช่วยจัดการ</p>
+            </div>
+            <div class="flex flex-col items-center space-y-4">
+                <div id="step-1" class="step-indicator w-full max-w-2xl bg-white p-4 rounded-lg border-l-4">
+                    <h4 class="font-bold">1. รับออเดอร์</h4>
+                    <p class="text-sm text-gray-600">ระบบรับออเดอร์จากลูกค้าที่ศรีสะเกษผ่านแพลตฟอร์ม</p>
+                </div>
+                <div class="text-2xl text-gray-400">↓</div>
+                <div id="step-2" class="step-indicator w-full max-w-2xl bg-white p-4 rounded-lg border-l-4">
+                    <h4 class="font-bold">2. ตรวจสอบสต็อก</h4>
+                    <p class="text-sm text-gray-600">ระบบตรวจสอบคลังสุรินทร์ (ใกล้ที่สุด) พบว่าสินค้าไม่พอ</p>
+                </div>
+                <div class="text-2xl text-gray-400">↓</div>
+                <div id="step-3" class="step-indicator w-full max-w-2xl bg-white p-4 rounded-lg border-l-4">
+                    <h4 class="font-bold">3. ค้นหาคลังทางเลือก</h4>
+                    <p class="text-sm text-gray-600">ระบบค้นหาคลังที่ใกล้ถัดไปและมีสินค้า พบว่า "คลังขอนแก่น" มีของพร้อม</p>
+                </div>
+                <div class="text-2xl text-gray-400">↓</div>
+                <div id="step-4" class="step-indicator w-full max-w-2xl bg-white p-4 rounded-lg border-l-4">
+                    <h4 class="font-bold">4. แนะนำ/โอนย้ายสต็อก</h4>
+                    <p class="text-sm text-gray-600">ระบบแจ้งเตือนให้โอนย้ายสินค้าจากขอนแก่นไปสุรินทร์</p>
+                </div>
+                <div class="text-2xl text-gray-400">↓</div>
+                <div id="step-5" class="step-indicator w-full max-w-2xl bg-white p-4 rounded-lg border-l-4">
+                    <h4 class="font-bold">5. จัดส่งสำเร็จ</h4>
+                    <p class="text-sm text-gray-600">สินค้าพร้อมส่งจากคลังสุรินทร์ถึงมือลูกค้า ไม่เสียโอกาสในการขาย!</p>
+                </div>
+            </div>
+             <div class="text-center mt-8">
+                <button id="simulate-smart-btn" class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-colors shadow-md">จำลองการทำงานด้วยระบบอัจฉริยะ</button>
+            </div>
+        </section>
+
+        <section class="mb-20 bg-white p-6 md:p-8 rounded-2xl shadow-lg">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-2 text-gray-800">ฟีเจอร์เสริม: คำนวณค่าน้ำมัน</h2>
+            <p class="text-center text-gray-600 mb-8">วางแผนต้นทุนการขนส่งระหว่างคลังได้แม่นยำ</p>
+            <div class="max-w-xl mx-auto grid sm:grid-cols-2 gap-4 items-end">
+                <div>
+                    <label for="from-warehouse" class="block text-sm font-medium text-gray-700">จากคลัง</label>
+                    <select id="from-warehouse" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option>กรุงเทพฯ</option>
+                        <option selected>ขอนแก่น</option>
+                        <option>สุรินทร์</option>
+                        <option>เชียงใหม่</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="to-warehouse" class="block text-sm font-medium text-gray-700">ไปคลัง</label>
+                    <select id="to-warehouse" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option>กรุงเทพฯ</option>
+                        <option>ขอนแก่น</option>
+                        <option selected>สุรินทร์</option>
+                        <option>เชียงใหม่</option>
+                    </select>
+                </div>
+            </div>
+            <div id="cost-result" class="mt-6 text-center bg-blue-50 p-6 rounded-lg">
+                <p class="text-lg text-gray-700">ระยะทางโดยประมาณ: <span id="distance" class="font-bold">185</span> กม.</p>
+                <p class="text-lg text-gray-700">ราคาน้ำมัน (สมมติ): <span id="fuel-price" class="font-bold">38.50</span> บาท/ลิตร</p>
+                <p class="text-2xl font-bold text-blue-800 mt-2">ต้นทุนค่าน้ำมัน: <span id="total-cost">~475</span> บาท</p>
+                <p class="text-xs text-gray-500 mt-2">*คำนวณจากอัตราสิ้นเปลืองเฉลี่ย 15 กม./ลิตร</p>
+            </div>
+        </section>
+
+        <section>
+            <div class="text-center mb-10">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">ประโยชน์ที่คุณจะได้รับ</h2>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-md text-center">
+                    <span class="text-4xl">🗂️</span>
+                    <h3 class="font-bold text-lg mt-2">จัดการออเดอร์รวมศูนย์</h3>
+                    <p class="text-sm text-gray-600 mt-1">รวมทุกออเดอร์จาก Lazada, Shopee, TikTok ไว้ในที่เดียว</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md text-center">
+                    <span class="text-4xl">📦</span>
+                    <h3 class="font-bold text-lg mt-2">ลดปัญหาสต็อกขาด</h3>
+                    <p class="text-sm text-gray-600 mt-1">ไม่พลาดทุกโอกาสในการขาย เพราะระบบช่วยหาของให้จนเจอ</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md text-center">
+                    <span class="text-4xl">😊</span>
+                    <h3 class="font-bold text-lg mt-2">ลูกค้าพึงพอใจ</h3>
+                    <p class="text-sm text-gray-600 mt-1">ได้รับของรวดเร็ว ไม่ต้องรอสินค้านาน หรือถูกยกเลิกออเดอร์</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md text-center">
+                    <span class="text-4xl">📈</span>
+                    <h3 class="font-bold text-lg mt-2">บริหารคลังอย่างมีประสิทธิภาพ</h3>
+                    <p class="text-sm text-gray-600 mt-1">รู้ทันทีว่าคลังไหนของใกล้หมด คลังไหนของล้นสต็อก</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md text-center">
+                    <span class="text-4xl">⛽</span>
+                    <h3 class="font-bold text-lg mt-2">ควบคุมต้นทุนขนส่ง</h3>
+                    <p class="text-sm text-gray-600 mt-1">คำนวณค่าน้ำมันสำหรับการโอนย้ายสินค้าระหว่างคลังได้</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md text-center">
+                    <span class="text-4xl">💡</span>
+                    <h3 class="font-bold text-lg mt-2">ตัดสินใจด้วยข้อมูล</h3>
+                    <p class="text-sm text-gray-600 mt-1">มีข้อมูลเชิงลึก ช่วยให้วางแผนสต็อกและการตลาดได้ดีขึ้น</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center p-6 bg-gray-800 text-white mt-12">
+        <p>สนใจทดลองใช้ระบบ Smart Logistics? ติดต่อเราเลย!</p>
+        <p class="mt-1 text-sm text-gray-400">เว็บไซต์: yourwebsite.com | โทร: 0X-XXXX-XXXX</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            const initialStockData = {
+                labels: ['กรุงเทพฯ', 'ขอนแก่น', 'สุรินทร์', 'เชียงใหม่'],
+                stocks: [50, 10, 1, 30]
+            };
+
+            const platformData = {
+                labels: ['Lazada', 'Shopee', 'TikTok'],
+                orders: [45, 35, 20]
+            };
+            
+            let stockChart, platformChart;
+            
+            function createCharts(stockData) {
+                const stockCtx = document.getElementById('stockChart').getContext('2d');
+                stockChart = new Chart(stockCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: stockData.labels,
+                        datasets: [{
+                            label: 'จำนวนสินค้า (ชิ้น)',
+                            data: stockData.stocks,
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.7)',
+                                'rgba(34, 197, 94, 0.7)',
+                                'rgba(239, 68, 68, 0.7)',
+                                'rgba(249, 115, 22, 0.7)',
+                            ],
+                            borderColor: [
+                                'rgba(59, 130, 246, 1)',
+                                'rgba(34, 197, 94, 1)',
+                                'rgba(239, 68, 68, 1)',
+                                'rgba(249, 115, 22, 1)',
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+
+                const platformCtx = document.getElementById('platformChart').getContext('2d');
+                platformChart = new Chart(platformCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: platformData.labels,
+                        datasets: [{
+                            label: 'สัดส่วนออเดอร์',
+                            data: platformData.orders,
+                            backgroundColor: ['#f97316', '#ea580c', '#1e293b'],
+                            hoverOffset: 4
+                        }]
+                    },
+                     options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                    }
+                });
+            }
+
+            function updateStockChart(newStockData) {
+                stockChart.data.datasets[0].data = newStockData;
+                stockChart.update();
+            }
+
+            createCharts(initialStockData);
+            
+            const whSurin = document.getElementById('warehouse-surin');
+            const whKhonKaen = document.getElementById('warehouse-khonkaen');
+            const statusEl = document.getElementById('simulation-status');
+            const simulateBtn = document.getElementById('simulate-order-btn');
+            const simulateSmartBtn = document.getElementById('simulate-smart-btn');
+            const resetBtn = document.getElementById('reset-simulation-btn');
+
+            const stockSurinEl = document.getElementById('stock-surin');
+            const stockKhonKaenEl = document.getElementById('stock-khonkaen');
+            const steps = document.querySelectorAll('.step-indicator');
+
+            function resetState() {
+                statusEl.textContent = '';
+                statusEl.className = 'absolute bottom-4 left-1/2 -translate-x-1/2 w-4/5 text-center p-3 rounded-lg text-lg font-semibold transition-all duration-300';
+                whSurin.classList.remove('blinking', 'bg-red-500');
+                whSurin.querySelector('div').classList.remove('bg-red-500');
+                whSurin.querySelector('div').classList.add('bg-blue-500');
+                whKhonKaen.classList.remove('blinking', 'bg-green-500');
+                whKhonKaen.querySelector('div').classList.remove('bg-green-500');
+                whKhonKaen.querySelector('div').classList.add('bg-blue-500');
+                
+                stockSurinEl.textContent = 'สต็อก: 1 ชิ้น';
+                stockKhonKaenEl.textContent = 'สต็อก: 10 ชิ้น';
+
+                simulateBtn.disabled = false;
+                simulateSmartBtn.disabled = false;
+                resetBtn.classList.add('hidden');
+
+                steps.forEach(step => step.classList.remove('active'));
+                updateStockChart(initialStockData.stocks);
+            }
+            
+            resetBtn.addEventListener('click', resetState);
+
+            simulateBtn.addEventListener('click', () => {
+                resetState();
+                simulateBtn.disabled = true;
+                simulateSmartBtn.disabled = true;
+                resetBtn.classList.remove('hidden');
+
+                let timeline = 0;
+                
+                setTimeout(() => {
+                    statusEl.textContent = 'มีออเดอร์เข้าจากศรีสะเกษ...';
+                    statusEl.classList.add('bg-blue-100', 'text-blue-800');
+                }, timeline += 500);
+
+                setTimeout(() => {
+                    statusEl.textContent = 'กำลังตรวจสอบคลังที่ใกล้ที่สุด: คลังสุรินทร์...';
+                    whSurin.classList.add('blinking');
+                }, timeline += 1500);
+
+                setTimeout(() => {
+                    whSurin.classList.remove('blinking');
+                    whSurin.querySelector('div').classList.remove('bg-blue-500');
+                    whSurin.querySelector('div').classList.add('bg-red-500');
+                    stockSurinEl.textContent = 'สต็อก: 0 ชิ้น';
+                    statusEl.textContent = 'ปัญหา! สินค้าในคลังสุรินทร์ไม่พอส่ง!';
+                    statusEl.className = 'absolute bottom-4 left-1/2 -translate-x-1/2 w-4/5 text-center p-3 rounded-lg text-lg font-semibold transition-all duration-300 bg-red-100 text-red-800';
+                    updateStockChart([50, 10, 0, 30]);
+                }, timeline += 2000);
+
+                 setTimeout(() => {
+                    statusEl.textContent = 'ผลลัพธ์: ต้องยกเลิกออเดอร์';
+                }, timeline += 1500);
+
+            });
+
+            simulateSmartBtn.addEventListener('click', () => {
+                resetState();
+                simulateBtn.disabled = true;
+                simulateSmartBtn.disabled = true;
+                resetBtn.classList.remove('hidden');
+                
+                let timeline = 0;
+
+                function activateStep(stepIndex) {
+                    steps.forEach((s, i) => {
+                        if (i === stepIndex) s.classList.add('active');
+                        else s.classList.remove('active');
+                    });
+                }
+                
+                setTimeout(() => {
+                    activateStep(0);
+                    statusEl.textContent = 'มีออเดอร์เข้าจากศรีสะเกษ...';
+                    statusEl.classList.add('bg-blue-100', 'text-blue-800');
+                }, timeline += 500);
+                
+                setTimeout(() => {
+                    activateStep(1);
+                    statusEl.textContent = 'ระบบตรวจสอบคลังสุรินทร์... พบว่าของไม่พอ!';
+                    whSurin.classList.add('blinking');
+                    updateStockChart([50, 10, 0, 30]);
+                    stockSurinEl.textContent = 'สต็อก: 0 ชิ้น';
+                }, timeline += 1500);
+
+                setTimeout(() => {
+                    activateStep(2);
+                    statusEl.textContent = 'ระบบค้นหาคลังทางเลือก... พบที่คลังขอนแก่น!';
+                    whSurin.classList.remove('blinking');
+                    whKhonKaen.classList.add('blinking');
+                    whKhonKaen.querySelector('div').classList.remove('bg-blue-500');
+                    whKhonKaen.querySelector('div').classList.add('bg-green-500');
+                }, timeline += 2000);
+                
+                setTimeout(() => {
+                    activateStep(3);
+                    statusEl.textContent = 'ระบบแนะนำให้โอนย้ายสต็อก...';
+                    whKhonKaen.classList.remove('blinking');
+                    updateStockChart([50, 9, 1, 30]);
+                    stockSurinEl.textContent = 'สต็อก: 1 ชิ้น';
+                    stockKhonKaenEl.textContent = 'สต็อก: 9 ชิ้น';
+                }, timeline += 2000);
+
+                setTimeout(() => {
+                    activateStep(4);
+                    statusEl.textContent = 'จัดส่งสำเร็จ! ลูกค้าได้รับของ ไม่เสียโอกาสในการขาย';
+                    statusEl.className = 'absolute bottom-4 left-1/2 -translate-x-1/2 w-4/5 text-center p-3 rounded-lg text-lg font-semibold transition-all duration-300 bg-green-100 text-green-800';
+                }, timeline += 1500);
+
+            });
+            
+            const fromSelect = document.getElementById('from-warehouse');
+            const toSelect = document.getElementById('to-warehouse');
+            const distanceEl = document.getElementById('distance');
+            const totalCostEl = document.getElementById('total-cost');
+            const fuelPrice = 38.50;
+            const consumptionRate = 15; // km/l
+
+            const distances = {
+                'ขอนแก่น-สุรินทร์': 185, 'ขอนแก่น-กรุงเทพฯ': 450, 'ขอนแก่น-เชียงใหม่': 680,
+                'สุรินทร์-กรุงเทพฯ': 430, 'สุรินทร์-เชียงใหม่': 860, 'สุรินทร์-ขอนแก่น': 185,
+                'กรุงเทพฯ-เชียงใหม่': 690, 'กรุงเทพฯ-สุรินทร์': 430, 'กรุงเทพฯ-ขอนแก่น': 450,
+                'เชียงใหม่-กรุงเทพฯ': 690, 'เชียงใหม่-สุรินทร์': 860, 'เชียงใหม่-ขอนแก่น': 680
+            };
+
+            function calculateCost() {
+                const from = fromSelect.value;
+                const to = toSelect.value;
+                if (from === to) {
+                    distanceEl.textContent = '0';
+                    totalCostEl.textContent = '0';
+                    return;
+                }
+                const key = `${from}-${to}`;
+                const distance = distances[key] || 0;
+                const cost = (distance / consumptionRate) * fuelPrice;
+
+                distanceEl.textContent = distance.toLocaleString();
+                totalCostEl.textContent = `~${Math.round(cost).toLocaleString()}`;
+            }
+
+            fromSelect.addEventListener('change', calculateCost);
+            toSelect.addEventListener('change', calculateCost);
+            
+            calculateCost();
+        });
+    </script>
+</body>
+</html>
